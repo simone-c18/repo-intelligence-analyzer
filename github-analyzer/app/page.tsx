@@ -2,66 +2,101 @@
 import { useState } from "react";
 
 export default function Home() {
-  const [url, setUrl] = useState("");
-  const [result, setResult] = useState<any>(null);
+  const [input, setInput] = useState(""); //handles multiple urls
+  const [reports, setReports] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const handleAnalyze = async () => {
+  const handleBatchAnalyze = async () => {
     setLoading(true);
-    try {
-      const response = await fetch("/api/analyze", {
-        method: "POST",
-        body: JSON.stringify({ url }),
-      });
-      const data = await response.json();
-      setResult(data);
-    } catch (error) {
-      alert("Error analyzing repo");
+    setReports([]); //clears previous results
+
+    //splits input by commas or new lines, cleans up whitespaces
+    const urls = input.split(/[\n,]+/).map(u => u.trim()).filter(u => u !== "");
+
+    for (const url of urls) {
+      try {
+        const response = await fetch("/api/analyze", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url }),
+        });
+        const data = await response.json();
+        if (response.ok) {
+          setReports((prev) => [...prev, { ...data, url }]);
+        }
+      } catch (error) {
+        console.error(`Failed to analyze ${url}`);
+      }
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (
-    <main className="min-h-screen bg-gray-900 text-white p-8">
-      <div className="max-w-2xl mx-auto space-y-8">
-        <h1 className="text-4xl font-bold text-center">Repo Intelligence Analyzer</h1>
-        
-        <div className="flex gap-4">
-          <input 
-            className="flex-1 p-3 rounded bg-gray-800 border border-gray-700 outline-none focus:border-blue-500"
-            placeholder="Paste GitHub URL (e.g. facebook/react)"
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
+    <main className="min-h-screen bg-slate-950 text-slate-50 p-6 md:p-12">
+      <div className="max-w-4xl mx-auto space-y-10">
+        <header className="text-center">
+          <h1 className="text-5xl font-extrabold tracking-tight mb-4">
+            GitHub <span className="text-blue-500">Intelligence</span>
+          </h1>
+          <p className="text-slate-400">Enter one or multiple repo URLs (separated by commas or new lines).</p>
+        </header>
+
+        {/* Input Section */}
+        <div className="space-y-4">
+          <textarea 
+            rows={4}
+            className="w-full p-4 rounded-xl bg-slate-900 border border-slate-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition"
+            placeholder="https://github.com/facebook/react, https://github.com/vercel/next.js"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
           />
           <button 
-            onClick={handleAnalyze}
+            onClick={handleBatchAnalyze}
             disabled={loading}
-            className="bg-blue-600 hover:bg-blue-700 px-6 py-3 rounded font-bold transition"
+            className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 py-4 rounded-xl font-bold text-lg transition shadow-lg shadow-blue-900/20"
           >
-            {loading ? "Analyzing..." : "Analyze"}
+            {loading ? "Analyzing Batch..." : "Generate Intelligence Reports"}
           </button>
         </div>
 
-        {result && (
-          <div className="bg-gray-800 p-6 rounded-lg border border-gray-700 animate-in fade-in duration-500">
-            <h2 className="text-2xl font-bold mb-2">{result.name}</h2>
-            <p className="text-gray-400 mb-6">{result.description}</p>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div className="p-4 bg-gray-900 rounded">
-                <p className="text-sm text-gray-500 uppercase">Activity Score</p>
-                <p className="text-2xl font-mono text-green-400">{result.activityScore}</p>
+        {/* Results Section (Structured Reports) */}
+        <div className="grid gap-6">
+          {reports.map((report, index) => (
+            <section key={index} className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+              <div className="p-6 border-b border-slate-800 bg-slate-900/50 flex justify-between items-center">
+                <div>
+                  <h2 className="text-2xl font-bold">{report.name}</h2>
+                  <p className="text-slate-500 text-sm">{report.url}</p>
+                </div>
+                <span className={`px-4 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
+                  report.difficulty === 'Advanced' ? 'bg-red-500/10 text-red-500 border border-red-500/20' : 
+                  report.difficulty === 'Intermediate' ? 'bg-yellow-500/10 text-yellow-500 border border-yellow-500/20' : 
+                  'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
+                }`}>
+                  {report.difficulty}
+                </span>
               </div>
-              <div className="p-4 bg-gray-900 rounded">
-                <p className="text-sm text-gray-500 uppercase">Difficulty</p>
-                <p className={`text-2xl font-bold ${result.difficulty === 'Advanced' ? 'text-red-400' : 'text-blue-400'}`}>
-                  {result.difficulty}
-                </p>
+              
+              <div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
+                <MetricCard title="Activity Score" value={report.activityScore} color="text-blue-400" subtitle="Engagement Velocity" />
+                <MetricCard title="Complexity" value={report.complexityScore} color="text-purple-400" subtitle="Codebase Weight" />
+                <MetricCard title="Top Language" value={report.languages[0] || "N/A"} color="text-slate-200" subtitle="Primary Stack" />
               </div>
-            </div>
-          </div>
-        )}
+            </section>
+          ))}
+        </div>
       </div>
     </main>
+  );
+}
+
+//helper component for UI consistency 
+function MetricCard({ title, value, color, subtitle }: any) {
+  return (
+    <div className="bg-slate-950/50 p-4 rounded-xl border border-slate-800">
+      <p className="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-1">{title}</p>
+      <p className={`text-3xl font-mono font-bold ${color}`}>{value}</p>
+      <p className="text-[10px] text-slate-600 mt-2 italic">{subtitle}</p>
+    </div>
   );
 }
