@@ -64,7 +64,7 @@ export async function POST(request: Request) {
 
   } catch (error: any) {
     console.error(error);
-    if (error.status === 404) return NextResponse.json({ error: "Repo not found" }, { status: 404 });
-    return NextResponse.json({ error: "Analysis failed" }, { status: 500 });
+    if (error.status === 404) return NextResponse.json({ error: "Repo not found. Please try again." }, { status: 404 });
+    return NextResponse.json({ error: "Analysis failed. Please try again." }, { status: 500 });
   }
 }

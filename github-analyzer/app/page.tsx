@@ -1,14 +1,21 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export default function Home() {
   const [input, setInput] = useState(""); //handles multiple urls
   const [reports, setReports] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handleBatchAnalyze = async () => {
     setLoading(true);
     setReports([]); //clears previous results
+    setError(null); //clear previous errors
 
     //splits input by commas or new lines, cleans up whitespaces
     const urls = input.split(/[\n,]+/).map(u => u.trim()).filter(u => u !== "");
@@ -21,15 +28,20 @@ export default function Home() {
           body: JSON.stringify({ url }),
         });
         const data = await response.json();
-        if (response.ok) {
-          setReports((prev) => [...prev, { ...data, url }]);
+        if (!response.ok) {
+          setError(data.error || "An unexpected error occurred");
+          setLoading(false);
+          return; //stops processing
         }
+        setReports((prev) => [...prev, { ...data, url }]);
       } catch (error) {
-        console.error(`Failed to analyze ${url}`);
+        setError("Check your internet connection or the URL format.");
       }
       setLoading(false);
     }
   };
+
+  if (!mounted) return null; // Wait until client-side to render
 
   return (
     <main className="min-h-screen bg-slate-950 text-slate-50 p-6 md:p-12">
@@ -59,6 +71,14 @@ export default function Home() {
           </button>
         </div>
 
+        {/* Displays error message */}
+        {error && (
+          <div className="bg-red-500/10 border border-red-500/50 p-4 rounded-xl flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
+            <span className="text-red-500 text-xl">⚠️</span>
+            <p className="text-red-200 text-sm font-medium">{error}</p>
+          </div>
+        )}
+
         {/* Results Section (Structured Reports) */}
         <div className="grid gap-6">
           {reports.map((report, index) => (
@@ -84,6 +104,42 @@ export default function Home() {
               </div>
             </section>
           ))}
+        </div>
+
+        {/* Methodology Legend */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
+          <div className="p-5 bg-slate-900/50 border border-slate-800 rounded-2xl shadow-sm">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
+              <h3 className="font-bold text-emerald-500 uppercase tracking-wider text-xs">Beginner</h3>
+            </div>
+            <p className="text-slate-400 text-sm leading-relaxed">
+              Small codebases (<span className="text-slate-200">50MB</span>) with focused tech stacks. 
+              Ideal for learning core patterns and individual contributions.
+            </p>
+          </div>
+
+          <div className="p-5 bg-slate-900/50 border border-slate-800 rounded-2xl shadow-sm">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-2 h-2 rounded-full bg-yellow-500"></div>
+              <h3 className="font-bold text-yellow-500 uppercase tracking-wider text-xs">Intermediate</h3>
+            </div>
+            <p className="text-slate-400 text-sm leading-relaxed">
+              Established projects with <span className="text-slate-200">multi-language</span> stacks and 
+              moderate community activity (500+ forks). Requires architectural awareness.
+            </p>
+          </div>
+
+          <div className="p-5 bg-slate-900/50 border border-slate-800 rounded-2xl shadow-sm">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-2 h-2 rounded-full bg-red-500"></div>
+              <h3 className="font-bold text-red-500 uppercase tracking-wider text-xs">Advanced</h3>
+            </div>
+            <p className="text-slate-400 text-sm leading-relaxed">
+              Massive enterprise-scale repos (<span className="text-slate-200">50MB</span>) with high 
+              complexity and rapid commit velocity. Involves complex CI/CD and dependencies.
+            </p>
+          </div>
         </div>
       </div>
     </main>
